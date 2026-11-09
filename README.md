@@ -1,9 +1,9 @@
 # Crystallography Simulators
 
-Two interactive browser-based crystallography simulators.
+Interactive 3D simulators that show how lattice planes become reciprocal-space points, and how the Ewald sphere decides which ones diffract.
 
-- Ewald Sphere 3D
-- Real to Reciprocal Space
+- **Ewald Sphere 3D**: rotate the crystal, change λ and d, and watch reciprocal points hit the sphere and trigger diffraction beams.
+- **Real to Reciprocal Space**: choose (hkl) and see the lattice planes, their spacing d, and the matching reciprocal-lattice vector.
 
 Open the [simulator website](https://jliu-science.github.io/crystallography-simulators/) and choose a simulator.
 
