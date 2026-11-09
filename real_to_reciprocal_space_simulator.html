@@ -116,31 +116,31 @@
     <div id="sheet">
     <!-- Left UI Panel (Controls) -->
     <div id="panel-left" class="floating-panel">
-        <a class="github-star" href="https://github.com/jliu-science/crystallography-simulators" target="_blank" rel="noopener noreferrer">&#9734; Star on GitHub</a>
+        <a class="github-star" href="https://github.com/jliu-science/crystallography-simulators" target="_blank" rel="noopener noreferrer" title="Leave your star if you found it helpful" aria-label="Star this project on GitHub - leave your star if you found it helpful">&#9734; Found this useful? Star it on GitHub</a>
         <h1 class="panel-title">Crystal Parameters</h1>
         <p class="panel-sub">Control lattice spacing &amp; Miller indices</p>
 
         <div class="control-group">
             <div class="control-label">
                 <span>Lattice Constant (a)</span>
-                <span id="val-a" class="val-display">2.00 Å</span>
+                <span id="val-a" class="val-display">4.00 Å</span>
             </div>
-            <input type="range" id="slider-a" min="1.0" max="4.0" step="0.1" value="2.0" aria-label="Lattice constant a">
+            <input type="range" id="slider-a" min="3.0" max="7.0" step="0.1" value="4.0" aria-label="Lattice constant a">
         </div>
 
         <div class="control-group">
             <div class="control-label"><span>Miller Index (h)</span> <span id="val-h" class="val-display">1</span></div>
-            <input type="range" id="slider-h" min="-2" max="2" step="1" value="1" aria-label="Miller index h">
+            <input type="range" id="slider-h" min="-4" max="4" step="1" value="1" aria-label="Miller index h">
         </div>
 
         <div class="control-group">
             <div class="control-label"><span>Miller Index (k)</span> <span id="val-k" class="val-display">1</span></div>
-            <input type="range" id="slider-k" min="-2" max="2" step="1" value="1" aria-label="Miller index k">
+            <input type="range" id="slider-k" min="-4" max="4" step="1" value="1" aria-label="Miller index k">
         </div>
 
         <div class="control-group">
             <div class="control-label"><span>Miller Index (l)</span> <span id="val-l" class="val-display">0</span></div>
-            <input type="range" id="slider-l" min="-2" max="2" step="1" value="0" aria-label="Miller index l">
+            <input type="range" id="slider-l" min="-4" max="4" step="1" value="0" aria-label="Miller index l">
         </div>
     </div>
 
@@ -174,13 +174,20 @@
     <script>
         // --- Global State & Configuration ---
         let params = {
-            a: 2.0,      // Real lattice constant
+            a: 4.0,      // Real lattice constant
             h: 1,        // Miller index h
             k: 1,        // Miller index k
             l: 0         // Miller index l
         };
 
+        const recipN = () => Math.max(2, Math.abs(params.h), Math.abs(params.k), Math.abs(params.l));
+        let recipBuiltN = 0;
         const VISUAL_SCALE = 5.0; // Base scale for rendering distances
+        // Orthographic camera: parallel lattice planes stay exactly parallel on screen when you rotate the view
+        // (a plane seen edge-on is a line, and so are all the planes parallel to it). Depth comes from shading, fog and overlap.
+        const CAMERA_PULLBACK = 3;          // camera distance factor; only affects fog and clipping for an orthographic view
+        const LABEL_BOOST = 1.6;            // overall label size factor
+        let orthoHalfHeight = 36 * Math.tan(22.5 * Math.PI / 180);
         const CENTER_REAL = new THREE.Vector3(-8, 0, 0);
         const CENTER_RECIP = new THREE.Vector3(8, 0, 0);
         const THICKNESS = 0.045;  // Line thickness
@@ -200,16 +207,19 @@
 
         // --- Core Materials ---
         const materials = {
-            atom: new THREE.MeshBasicMaterial({ color: 0xb8c4d6 }),
-            atomCenter: new THREE.MeshBasicMaterial({ color: 0x34d399 }),
+            atom: new THREE.MeshPhongMaterial({ color: 0xb8c4d6, shininess: 70, specular: 0x6b7890 }),
+            atomCenter: new THREE.MeshPhongMaterial({ color: 0x34d399, shininess: 70, specular: 0x66ffcc }),
 
-            recipPoint: new THREE.MeshBasicMaterial({ color: 0x8c7a3c }),
-            recipActive: new THREE.MeshBasicMaterial({ color: 0xffd34d }),
-            recipCenter: new THREE.MeshBasicMaterial({ color: 0xf4f7ff }),
+            recipPoint: new THREE.MeshPhongMaterial({ color: 0xa8923f, shininess: 50, specular: 0x6b5a2a }),
+            recipActive: new THREE.MeshPhongMaterial({ color: 0xffd34d, shininess: 80, specular: 0xfff0b0, emissive: 0x4a3a00 }),
+            recipCenter: new THREE.MeshPhongMaterial({ color: 0xf4f7ff, shininess: 80, specular: 0xffffff }),
             halo: new THREE.MeshBasicMaterial({ color: 0xffd34d, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false }),
 
-            plane: new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false }),
-            planeEdge: new THREE.LineBasicMaterial({ color: 0x6ee7b7 }),
+            plane: new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.20, side: THREE.DoubleSide, depthWrite: false }),
+            planeCentre: new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.34, side: THREE.DoubleSide, depthWrite: false }),
+            planeEdge: new THREE.LineBasicMaterial({ color: 0x6ee7b7, transparent: true, opacity: 0.75 }),
+            planeEdgeCentre: new THREE.LineBasicMaterial({ color: 0x9af0c8, transparent: true, opacity: 0.95 }),
+            atomOnPlane: new THREE.MeshPhongMaterial({ color: 0x6ee7b7, shininess: 80, specular: 0xccffee, emissive: 0x0a3a2a }),
 
             vectorReal: new THREE.MeshBasicMaterial({ color: 0xff4d5e }),
             vectorRecip: new THREE.MeshBasicMaterial({ color: 0xffd34d }),
@@ -232,10 +242,10 @@
 
             // 1. Scene Setup
             scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x070b14, 0.006);
+            scene.fog = new THREE.FogExp2(0x070b14, 0.011 / CAMERA_PULLBACK);
 
             // 2. Camera Setup (both spaces side-by-side)
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 2000);
 
             // 3. Renderer Setup
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -245,13 +255,14 @@
             container.appendChild(renderer.domElement);
 
             // 4. Lighting
-            scene.add(new THREE.AmbientLight(0xffffff, 1.2));
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.15); keyLight.position.set(14, 22, 18); scene.add(keyLight);
+            const rimLight = new THREE.DirectionalLight(0x7fb2ff, 0.45); rimLight.position.set(-16, -8, -14); scene.add(rimLight);
 
             // 5. OrbitControls
             fitCamera();
             controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
+            controls.enableDamping = false; // no inertia: the view stops as soon as the pointer stops
             controls.target.set(0, window.innerWidth < 700 ? -8 : -3, 0);
 
             // 6. Add Groups
@@ -266,8 +277,16 @@
         function fitCamera() {
             const c = document.getElementById('canvas-container');
             const aspect = c.clientWidth / c.clientHeight;
-            const dist = 36 * Math.max(1, 1.7 / aspect);
-            camera.position.set(0, 12 * Math.max(1, 1.7 / aspect), dist);
+            const k = Math.max(1, 1.7 / aspect);
+            orthoHalfHeight = 36 * k * Math.tan(22.5 * Math.PI / 180);
+            camera.position.set(0, 12 * k * CAMERA_PULLBACK, 36 * k * CAMERA_PULLBACK);
+            applyOrthoFrustum(aspect);
+        }
+
+        function applyOrthoFrustum(aspect) {
+            camera.left = -orthoHalfHeight * aspect; camera.right = orthoHalfHeight * aspect;
+            camera.top = orthoHalfHeight; camera.bottom = -orthoHalfHeight;
+            camera.updateProjectionMatrix();
         }
 
         // Sprite label from a high-res canvas, dark pill background, always on top
@@ -299,6 +318,7 @@
             const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, depthWrite: false, transparent: true, fog: false });
             const sprite = new THREE.Sprite(mat);
             sprite.scale.set(worldHeight * w / h, worldHeight, 1);
+            sprite.userData.baseScale = [worldHeight * w / h, worldHeight];
             sprite.renderOrder = 999;
             return sprite;
         }
@@ -381,7 +401,7 @@
             groups.realGrid.clear();
             clearGroup(groups.realLattice);
             const N = 1; // 3x3x3 grid (-1 to 1)
-            const spacing = params.a * (VISUAL_SCALE / 2.0);
+            const spacing = params.a * (VISUAL_SCALE / 4.0);
 
             for (let i = -N; i <= N; i++) {
                 for (let j = -N; j <= N; j++) {
@@ -389,6 +409,7 @@
                         const isOrigin = (i === 0 && j === 0 && k === 0);
                         const atom = new THREE.Mesh(isOrigin ? atomCenterGeo : atomGeo, isOrigin ? materials.atomCenter : materials.atom);
                         atom.userData.sharedGeo = true;
+                        atom.userData.ijk = [i, j, k];
                         atom.position.set(
                             CENTER_REAL.x + i * spacing,
                             CENTER_REAL.y + j * spacing,
@@ -403,11 +424,13 @@
         }
 
         function buildReciprocalSpace() {
+            recipBuiltN = recipN();
             groups.recipGrid.clear();
             clearGroup(groups.recipLattice);
 
-            const a_star = (1.0 / params.a) * (VISUAL_SCALE * 2.0);
-            const N = 2; // 5x5x5 grid
+            const a_star = (1.0 / params.a) * (VISUAL_SCALE * 4.0);
+            // Show a 5x5x5 block of reciprocal points; grow it only when a higher-order (hkl) needs more
+            const N = recipN();
 
             for (let i = -N; i <= N; i++) {
                 for (let j = -N; j <= N; j++) {
@@ -428,6 +451,38 @@
             groups.recipLattice.add(new THREE.LineSegments(latticeEdges(N, a_star, CENTER_RECIP), materials.recipLatticeLine));
         }
 
+        // The (hkl) family: one square sheet per lattice plane that passes through atoms.
+        // All sheets have the same size and the same orientation, so they stay parallel from every viewpoint.
+        function buildPlaneFamily(dir, visual_d) {
+            const N = 1, spacing = params.a * (VISUAL_SCALE / 4.0);
+            const mMax = Math.min(12, N * (Math.abs(params.h) + Math.abs(params.k) + Math.abs(params.l)));
+            const side = spacing * 3.0;
+            const geo = new THREE.PlaneGeometry(side, side);
+            const edges = new THREE.EdgesGeometry(geo);
+            const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+            for (let m = -mMax; m <= mMax; m++) {
+                const centre = m === 0;
+                const sheet = new THREE.Mesh(geo, centre ? materials.planeCentre : materials.plane);
+                sheet.quaternion.copy(quaternion);
+                sheet.position.copy(CENTER_REAL).addScaledVector(dir, m * visual_d);
+                sheet.renderOrder = 2;
+                sheet.add(new THREE.LineSegments(edges, centre ? materials.planeEdgeCentre : materials.planeEdge));
+                groups.realPlanes.add(sheet);
+            }
+        }
+
+        // Atoms on the central plane (the one through the origin) are highlighted
+        function highlightAtomsOnCentralPlane(active) {
+            groups.realGrid.children.forEach(atom => {
+                const [i, j, k] = atom.userData.ijk;
+                const isOrigin = i === 0 && j === 0 && k === 0;
+                const on = active && (params.h * i + params.k * j + params.l * k) === 0;
+                atom.material = isOrigin ? materials.atomCenter : (on ? materials.atomOnPlane : materials.atom);
+                const s = on && !isOrigin ? 1.25 : 1;
+                atom.scale.set(s, s, s);
+            });
+        }
+
         function updateMapping() {
             clearGroup(groups.realPlanes);
             clearGroup(groups.realVector);
@@ -446,6 +501,7 @@
             if (h === 0 && k === 0 && l === 0) {
                 updateUI(0, 0);
                 resetReciprocalHighlight();
+                highlightAtomsOnCentralPlane(false);
                 return;
             }
 
@@ -459,23 +515,10 @@
 
             const dir = normal.clone().normalize();
 
-            // 1. Draw Real Space Planes
-            const visual_d = d * (VISUAL_SCALE / 2.0);
-            const planeSize = VISUAL_SCALE * 3.2;
-            const planeGeo = new THREE.PlaneGeometry(planeSize, planeSize);
-            const quaternion = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-
-            for (let n = -1; n <= 1; n++) {
-                const plane = new THREE.Mesh(planeGeo, materials.plane);
-                const pos = dir.clone().multiplyScalar(n * visual_d);
-                plane.position.copy(CENTER_REAL).add(pos);
-                plane.quaternion.copy(quaternion);
-
-                const edges = new THREE.EdgesGeometry(planeGeo);
-                plane.add(new THREE.LineSegments(edges, materials.planeEdge));
-
-                groups.realPlanes.add(plane);
-            }
+            // 1. Draw Real Space Planes: the whole (hkl) family through the crystal block
+            const visual_d = d * (VISUAL_SCALE / 4.0);
+            buildPlaneFamily(dir, visual_d);
+            highlightAtomsOnCentralPlane(true);
 
             // Real Space Normal Vector with arrowhead
             const headLen = 0.7, headR = THICKNESS * 1.4 * 3.2;
@@ -493,7 +536,7 @@
             let u = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0));
             if (u.lengthSq() < 1e-4) u = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(1, 0, 0));
             u.normalize();
-            const off = u.clone().multiplyScalar(3.0);
+            const off = u.clone().multiplyScalar(2.2);
             const m0 = CENTER_REAL.clone().add(off);
             const m1 = m0.clone().addScaledVector(dir, visual_d);
             groups.realVector.add(createThickLine(m0, m1, materials.dim, 0.022));
@@ -532,7 +575,8 @@
                 groups.recipVector.add(halo);
 
                 const gLabel = makeLabel(`G(${h}${k}${l}) = 1/d`, '#ffe38a', 0.98);
-                gLabel.position.copy(CENTER_RECIP).lerp(targetPos, 0.5).add(new THREE.Vector3(0, 0.9, 0));
+                gLabel.position.copy(CENTER_RECIP).lerp(targetPos, 0.5);
+                gLabel.center.set(0.5, -0.2); // anchor below the label so it always sits above the arrow, at any zoom or label size
                 groups.recipVector.add(gLabel);
             }
         }
@@ -570,6 +614,7 @@
                 document.getElementById('val-k').innerText = params.k;
                 document.getElementById('val-l').innerText = params.l;
 
+                if (recipN() !== recipBuiltN) buildReciprocalSpace();
                 updateMapping();
             };
 
@@ -579,15 +624,26 @@
 
             window.addEventListener('resize', () => {
                 const c = document.getElementById('canvas-container');
-                camera.aspect = c.clientWidth / c.clientHeight;
-                camera.updateProjectionMatrix();
+                applyOrthoFrustum(c.clientWidth / c.clientHeight);
                 renderer.setSize(c.clientWidth, c.clientHeight);
             });
+        }
+
+
+        // Label size: constant on screen when zoomed out; labels grow gently when you zoom in
+        function updateLabelScales() {
+            const z = camera.zoom;
+            const f = LABEL_BOOST * Math.min(8, Math.max(0.15, z <= 1 ? 1 / z : Math.pow(z, -0.55)));
+            [groups.realVector, groups.recipVector].forEach(g => g.children.forEach(ch => {
+                if (!ch.isSprite || !ch.userData.baseScale) return;
+                ch.scale.set(ch.userData.baseScale[0] * f, ch.userData.baseScale[1] * f, 1);
+            }));
         }
 
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+            updateLabelScales();
             renderer.render(scene, camera);
         }
     </script>

@@ -113,24 +113,24 @@
 <body>
 
     <div id="ui-panel">
-        <a class="github-star" href="https://github.com/jliu-science/crystallography-simulators" target="_blank" rel="noopener noreferrer">&#9734; Star on GitHub</a>
+        <a class="github-star" href="https://github.com/jliu-science/crystallography-simulators" target="_blank" rel="noopener noreferrer" title="Leave your star if you found it helpful" aria-label="Star this project on GitHub - leave your star if you found it helpful">&#9734; Found this useful? Star it on GitHub</a>
         <h1>Ewald Sphere Pro</h1>
         <p class="subtitle">3D Reciprocal Space &amp; Diffraction Collision</p>
 
         <details id="instruction" open>
             <summary id="inst-title">Guide: Single Crystal Mode</summary>
-            <p id="inst-desc">Drag to rotate the 3D view. Adjust the 'Rotate Crystal' slider, or tweak λ and d, to observe reciprocal points hitting the Ewald sphere and triggering diffraction beams!</p>
+            <p id="inst-desc">Left-drag to rotate the 3D view; hold the right mouse button and drag to pan. Adjust the 'Rotate Crystal' slider, or tweak λ and d, to observe reciprocal points hitting the Ewald sphere and triggering diffraction beams!</p>
         </details>
 
         <div class="control-group">
             <div class="control-label">
                 <span>X-ray wavelength λ (Å) · sphere radius ∝ 1/λ</span>
-                <span id="val-lambda" class="val-display">1.00 Å</span>
+                <span id="val-lambda" class="val-display">0.7107 Å · Mo Kα</span>
             </div>
-            <input type="range" id="slider-lambda" min="0.5" max="2.0" step="0.01" value="1.0">
+            <input type="range" id="slider-lambda" min="0.5" max="2.0" step="0.01" value="0.71">
             <div class="anode-chips" aria-label="Common anode Kα wavelengths">
                 <button type="button" data-lambda="0.5609">Ag 0.56</button>
-                <button type="button" data-lambda="0.7107">Mo 0.71</button>
+                <button type="button" class="active" data-lambda="0.7107">Mo 0.71</button>
                 <button type="button" data-lambda="1.5418">Cu 1.54</button>
                 <button type="button" data-lambda="1.7903">Co 1.79</button>
             </div>
@@ -139,9 +139,9 @@
         <div class="control-group">
             <div class="control-label">
                 <span>Lattice spacing d (Å) · reciprocal spacing ∝ 1/d</span>
-                <span id="val-d" class="val-display">1.50 Å</span>
+                <span id="val-d" class="val-display">1.90 Å</span>
             </div>
-            <input type="range" id="slider-d" min="0" max="1000" step="1" value="195" aria-valuetext="1.50 Å">
+            <input type="range" id="slider-d" min="0" max="1000" step="1" value="269" aria-valuetext="1.90 Å">
             <div class="range-ends"><span>0.8 Å</span><span>logarithmic scale</span><span>20 Å</span></div>
         </div>
 
@@ -205,7 +205,7 @@
 
     <script>
         // Core parameters & state
-        let params = { lambda: 1.0, d: 1.5, mode: 'single', rotation: 0, det2theta: 0, detType: '2d', soller: false, sollerAlpha: 0.04 };
+        let params = { lambda: 0.7107, d: 1.9, mode: 'single', rotation: 0, det2theta: 0, detType: '2d', soller: false, sollerAlpha: 0.04 };
         const SCALE = 8.0;               // Visual scale factor
         const DETECTOR_X = 24.0;         // Detector plane position
         const DET_SIZE = 90;             // 2D detector screen edge length
@@ -229,6 +229,9 @@
         const THICKNESS = 0.04;          // Uniform line thickness (fine cylinder radius)
 
         let scene, camera, renderer, controls;
+        const LABEL_BOOST = 1.6;                   // overall label size factor
+        let labelRefDistance = null;               // camera distance used as the reference for constant-size labels
+        const _labelPos = new THREE.Vector3();
 
         // Scene groups for easy management
         const groups = {
@@ -288,7 +291,7 @@
             scene = new THREE.Scene();
             const view = () => [container.clientWidth, container.clientHeight];
             camera = new THREE.PerspectiveCamera(45, view()[0] / view()[1], 0.1, 1000);
-            camera.position.set(-24, 24, 66);
+            camera.position.set(0, 6.4, 88); // opening view: looking straight along the detector's depth, slightly from above
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(...view());
@@ -297,7 +300,7 @@
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true; controls.dampingFactor = 0.05;
+            controls.enableDamping = false; // no inertia: the view stops as soon as the pointer stops
             controls.target.set(0, 0, 0);
 
             // Add groups to scene
@@ -360,6 +363,7 @@
             const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false });
             const sprite = new THREE.Sprite(mat);
             sprite.scale.set(worldWidth, worldWidth / 4, 1);
+            sprite.userData.baseScale = [worldWidth, worldWidth / 4];
             sprite.renderOrder = 999;
             return sprite;
         }
@@ -445,7 +449,16 @@
             groups.detector.add(frame);
 
             const name = { '2d': 'Detector (2D)', '1d': 'Detector (1D strip)', '0d': 'Detector (0D)' }[params.mode === 'powder' ? params.detType : '2d'];
-            addLabel(groups.detector, name, '#e6eef8', new THREE.Vector3(fr.D, H / 2 + 3, 0), 9);
+            // Label lies flat on the detector face, rotated 90 degrees so it runs up the grid
+            const tag = makeLabel(name, '#e6eef8', 14);
+            const tagMesh = new THREE.Mesh(new THREE.PlaneGeometry(14, 14 / 4),
+                new THREE.MeshBasicMaterial({ map: tag.material.map, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+            tagMesh.rotation.order = 'YXZ';
+            tagMesh.rotation.y = -Math.PI / 2;
+            tagMesh.rotation.z = Math.PI / 2;
+            tagMesh.position.set(fr.D - 0.15, Math.min(10, H / 4), 0);
+            tagMesh.renderOrder = 5;
+            groups.detector.add(tagMesh);
         }
 
         function rebuildAll() {
@@ -554,7 +567,7 @@
             // Frame the scene once (sphere and detector); later rebuilds keep the user's view
             if (!rebuildAll.framed) {
                 // On narrow screens the bottom sheet covers the lower half, so aim lower to lift the scene
-                controls.target.set(4, window.innerWidth < 700 ? -14 : 0, 0);
+                controls.target.set(4.6, window.innerWidth < 700 ? -14 : 0.9, 0);
                 rebuildAll.framed = true;
             }
 
@@ -795,7 +808,7 @@
                         rotWrap.style.display = 'block';
                         powWrap.style.display = 'none';
                         iTitle.innerText = "Guide: Single Crystal Mode";
-                        iDesc.innerText = "Drag to rotate the 3D view. Adjust the 'Rotate Crystal' slider, or tweak λ and d, to observe reciprocal points hitting the Ewald sphere and triggering diffraction beams!";
+                        iDesc.innerText = "Left-drag to rotate the 3D view; hold the right mouse button and drag to pan. Adjust the 'Rotate Crystal' slider, or tweak λ and d, to observe reciprocal points hitting the Ewald sphere and triggering diffraction beams!";
                     } else {
                         rotWrap.style.display = 'none';
                         powWrap.style.display = 'block';
@@ -815,9 +828,24 @@
             });
         }
 
+
+        // Constant on-screen label size: scale each label by its distance to the camera
+        function updateLabelScales() {
+            if (labelRefDistance === null) labelRefDistance = 75.6; // fixed reference so label size does not depend on the opening distance
+            [groups.detector, groups.ewald].forEach(g => g.children.forEach(ch => {
+                if (!ch.isSprite || !ch.userData.baseScale) return;
+                ch.getWorldPosition(_labelPos);
+                // zoomed out: constant screen size; zoomed in: labels grow gently so they stay easy to read
+                const r = camera.position.distanceTo(_labelPos) / labelRefDistance;
+                const f = LABEL_BOOST * Math.min(8, Math.max(0.25, r >= 1 ? r : Math.pow(r, 0.45)));
+                ch.scale.set(ch.userData.baseScale[0] * f, ch.userData.baseScale[1] * f, 1);
+            }));
+        }
+
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+            updateLabelScales();
             renderer.render(scene, camera);
         }
     </script>
