@@ -17,4 +17,4 @@ Link: https://jliu-science.github.io/crystallography-simulators/
 If you find it useful, a star on GitHub is much appreciated. Feedback and bug reports are welcome.
 
 Best regards,
-Joe
+jie
