@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ewald Sphere 3D Interactive Simulator - Pro</title>
+    <title>Ewald Sphere 3D | Crystallography Simulators</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         :root {
             --text: #e6eef8; --muted: #a9b8cc;
-            --panel: rgba(10,16,28,.88); --border: rgba(140,190,255,.22);
+            --panel: rgba(6,18,25,.92); --border: rgba(143,211,219,.22);
             --cyan: #38e1ff; --gold: #ffd34d; --red: #ff4d5e; --white: #f4f7ff; --slate: #3a4a66;
         }
         html, body { margin: 0; height: 100%; }
-        html { background: #05070c radial-gradient(1200px 800px at 30% 20%, #12203a 0%, #0a1222 45%, #05070c 100%) no-repeat fixed; }
+        html { background: #040b10 radial-gradient(1100px 760px at 32% 22%, #0f2f3d 0%, #091b25 48%, #040b10 100%) no-repeat fixed; }
         body {
             overflow: hidden; color: var(--text);
             background: transparent;
-            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            font-family: DengXian, "等线", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
             font-variant-numeric: tabular-nums;
         }
         :root { --sidebar: 380px; }
@@ -32,7 +32,7 @@
             padding: 26px 24px; z-index: 10; box-shadow: -12px 0 40px rgba(0,0,0,.45);
             overflow-y: auto;
         }
-        #ui-panel h1 { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 0 0 6px; line-height: 1.3; }
+        #ui-panel h1 { font-family: DengXian, "等线", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 1.4rem; font-weight: 600; color: var(--text); margin: 0 0 6px; line-height: 1.3; }
         #ui-panel .subtitle { font-size: .8rem; color: var(--muted); margin: 0 0 18px; }
 
         .control-group { margin-bottom: 18px; }
@@ -60,10 +60,10 @@
         input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,.18); border-radius: 2px; }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; margin-top: -8px;
-            background: var(--cyan); cursor: pointer; border: 2px solid #0a1222; box-sizing: content-box;
+            background: var(--cyan); cursor: pointer; border: 2px solid #091b25; box-sizing: content-box;
         }
         input[type=range]::-moz-range-track { width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,.18); border-radius: 2px; }
-        input[type=range]::-moz-range-thumb { height: 16px; width: 16px; border-radius: 50%; background: var(--cyan); cursor: pointer; border: 2px solid #0a1222; box-sizing: content-box; }
+        input[type=range]::-moz-range-thumb { height: 16px; width: 16px; border-radius: 50%; background: var(--cyan); cursor: pointer; border: 2px solid #091b25; box-sizing: content-box; }
         input[type=range]:focus { outline: none; }
         input[type=range]:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 4px; }
 
@@ -108,13 +108,14 @@
             #instruction { margin-bottom: 12px; }
         }
     </style>
-<style>.github-star{display:inline-flex;align-items:center;min-height:36px;padding:6px 12px;margin-bottom:14px;border:1px solid #63758b;border-radius:8px;color:#e6eef8;background:#15243a;text-decoration:none;font:600 13px/1.3 system-ui,sans-serif;white-space:nowrap}.github-star:hover{background:#263c59}.github-star:focus-visible{outline:2px solid #38e1ff;outline-offset:3px}</style>
+<style>.github-star{display:inline-flex;align-items:center;min-height:36px;padding:6px 12px;margin-bottom:14px;border:1px solid #4f7f88;border-radius:8px;color:#e6eef8;background:#123a43;text-decoration:none;font:600 13px/1.3 DengXian,"等线",system-ui,sans-serif;white-space:nowrap}.github-star:hover{background:#1b4d58}.github-star:focus-visible{outline:2px solid #38e1ff;outline-offset:3px}</style>
+<style>.home-link{display:inline-flex;align-items:center;gap:6px;margin:0 0 12px;color:#8fd3db;text-decoration:none;font:600 13px/1.3 DengXian,"等线",system-ui,sans-serif}.home-link:hover{color:#fff}.home-link:focus-visible{outline:2px solid #8fd3db;outline-offset:3px;border-radius:4px}.top-links{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 12px}</style>
 </head>
 <body>
 
     <div id="ui-panel">
-        <a class="github-star" href="https://github.com/jliu-science/crystallography-simulators" target="_blank" rel="noopener noreferrer" title="Leave your star if you found it helpful" aria-label="Star this project on GitHub - leave your star if you found it helpful">&#9734; Found this useful? Star it on GitHub</a>
-        <h1>Ewald Sphere Pro</h1>
+        <div class="top-links"><a class="home-link" href="index.html">← All simulators</a><a class="github-star" href="https://github.com/jliu-science/crystallography-simulators" target="_blank" rel="noopener noreferrer" title="Leave your star if you found it helpful" aria-label="Star this project on GitHub - leave your star if you found it helpful">&#9734; Found this useful? Star it on GitHub</a></div>
+        <h1>Ewald Sphere 3D</h1>
         <p class="subtitle">3D Reciprocal Space &amp; Diffraction Collision</p>
 
         <details id="instruction" open>
@@ -341,13 +342,13 @@
             const canvas = document.createElement('canvas');
             canvas.width = 256; canvas.height = 64;
             const ctx = canvas.getContext('2d');
-            const family = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+            const family = 'DengXian, "等线", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
             let size = 36;
             ctx.font = '600 ' + size + 'px ' + family;
             while (ctx.measureText(text).width > 230 && size > 14) { size -= 2; ctx.font = '600 ' + size + 'px ' + family; }
             const w = Math.min(252, Math.ceil(ctx.measureText(text).width) + 22);
             const x0 = (256 - w) / 2;
-            ctx.fillStyle = 'rgba(10,16,28,0.78)';
+            ctx.fillStyle = 'rgba(6,18,25,0.82)';
             ctx.strokeStyle = 'rgba(140,190,255,0.35)';
             ctx.lineWidth = 2;
             ctx.beginPath();
