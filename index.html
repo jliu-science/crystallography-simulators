@@ -171,10 +171,28 @@
 
           <a class="card" href="ewald%20sphere%203d%20simulator.html">
             <svg class="thumb" viewBox="0 0 320 150" role="img" aria-label="Ewald sphere in 3D with three diffracted beams travelling to a flat detector">
-              <circle cx="110" cy="76" r="58" fill="rgba(19,133,146,.06)" stroke="#138592" stroke-width="1.8"/>
-              <ellipse cx="110" cy="76" rx="58" ry="16" fill="none" stroke="#138592" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>
-              <ellipse cx="110" cy="76" rx="18" ry="58" fill="none" stroke="#138592" stroke-width="1" opacity=".3"/>
-              <line x1="8" y1="76" x2="168" y2="76" stroke="#0f2730" stroke-width="1.6"/>
+              <defs>
+                <radialGradient id="ewGlass" cx="36%" cy="30%" r="75%">
+                  <stop offset="0" stop-color="#ffffff"/>
+                  <stop offset=".35" stop-color="#e3f3f5"/>
+                  <stop offset=".75" stop-color="#b5dfe5"/>
+                  <stop offset="1" stop-color="#7cc3ce"/>
+                </radialGradient>
+                <radialGradient id="ewHi" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#ffffff" stop-opacity=".95"/>
+                  <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+                </radialGradient>
+                <radialGradient id="ewShadow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-color="#0f2730" stop-opacity=".18"/>
+                  <stop offset="1" stop-color="#0f2730" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+              <ellipse cx="114" cy="141" rx="50" ry="6" fill="url(#ewShadow)"/>
+              <circle cx="110" cy="76" r="58" fill="url(#ewGlass)" fill-opacity=".85" stroke="#138592" stroke-width="1.6"/>
+              <path d="M63.2 103 A54 54 0 0 0 151.4 110.7" fill="none" stroke="#ffffff" stroke-width="2" opacity=".55"/>
+              <path d="M52 76 A58 16 0 0 0 168 76" fill="none" stroke="#138592" stroke-width="1" stroke-dasharray="3 3" opacity=".65"/>
+              <path d="M52 76 A58 16 0 0 1 168 76" fill="none" stroke="#138592" stroke-width="1" stroke-dasharray="2 4" opacity=".3"/>
+                            <line x1="8" y1="76" x2="168" y2="76" stroke="#0f2730" stroke-width="1.6"/>
               <polygon points="34,71 44,76 34,81" fill="#0f2730"/>
               <polygon points="246,12 264,5 264,141 246,132" fill="#eef3f5" stroke="#8aa0a6" stroke-width="1.2"/>
               <g stroke="#d9692f" stroke-width="1.6">
@@ -185,6 +203,7 @@
               <path d="M134 76 A24 24 0 0 0 132.2 66.9" fill="none" stroke="#0f2730" stroke-width="1"/>
               <g fill="#d6b56c"><circle cx="167.1" cy="65.8" r="3.3"/><circle cx="163.6" cy="56" r="3.3"/><circle cx="165.4" cy="91.3" r="3.3"/></g>
               <g fill="#d9692f"><circle cx="255" cy="50" r="4"/><circle cx="255" cy="22" r="4"/><circle cx="255" cy="116" r="4"/></g>
+              <ellipse cx="88" cy="50" rx="15" ry="9" transform="rotate(-28 88 50)" fill="url(#ewHi)"/>
               <circle cx="110" cy="76" r="2.8" fill="#138592"/>
               <circle cx="168" cy="76" r="4" fill="#0f2730"/>
               <g font-family="DengXian, Microsoft YaHei, sans-serif" font-size="13" font-style="italic">
