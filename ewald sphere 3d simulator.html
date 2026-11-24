@@ -194,7 +194,7 @@
         </div>
 
         <div class="legend">
-            <div class="legend-item"><div class="color-dot" style="background:#38e1ff"></div> <span>Ewald Sphere &amp; Skeleton (1/λ)</span></div>
+            <div class="legend-item"><div class="color-dot" style="background:#38e1ff"></div> <span>Ewald Sphere (radius 1/λ)</span></div>
             <div class="legend-item"><div class="color-dot" style="background:#ffd34d"></div> <span>Reciprocal Lattice (1/d)</span></div>
             <div class="legend-item"><div class="color-dot" style="background:#ff4d5e"></div> <span>Diffraction Beam &amp; Collision Ring</span></div>
             <div class="legend-item"><div class="color-dot" style="background:#f4f7ff"></div> <span>Incident beam k₀ &amp; origin O</span></div>
@@ -243,15 +243,50 @@
             static: new THREE.Group()
         };
 
+        // Glass-like shading for the Ewald sphere. Lighting is in view space, so the highlight stays put while the view rotates.
+        function makeGlassMaterial(side, strength) {
+            return new THREE.ShaderMaterial({
+                uniforms: {
+                    baseColor: { value: new THREE.Color(0x1c6f9c) },
+                    rimColor: { value: new THREE.Color(0x8beeff) },
+                    lightDir: { value: new THREE.Vector3(-0.55, 0.65, 0.55).normalize() },
+                    strength: { value: strength }
+                },
+                vertexShader: `
+                    varying vec3 vN; varying vec3 vV;
+                    void main() {
+                        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+                        vN = normalize(normalMatrix * normal);
+                        vV = normalize(-mv.xyz);
+                        gl_Position = projectionMatrix * mv;
+                    }`,
+                fragmentShader: `
+                    uniform vec3 baseColor; uniform vec3 rimColor; uniform vec3 lightDir; uniform float strength;
+                    varying vec3 vN; varying vec3 vV;
+                    void main() {
+                        vec3 n = normalize(vN);
+                        if (!gl_FrontFacing) n = -n;
+                        vec3 v = normalize(vV);
+                        float ndv = clamp(abs(dot(n, v)), 0.0, 1.0);
+                        float rim = pow(1.0 - ndv, 2.4);
+                        float lam = max(dot(n, lightDir), 0.0);
+                        float spec = pow(max(dot(reflect(-lightDir, n), v), 0.0), 36.0);
+                        vec3 col = baseColor * (0.45 + 0.75 * lam) + rimColor * rim * 0.9 + vec3(spec) * 0.6;
+                        float a = (0.07 + 0.16 * lam + 0.55 * rim + 0.35 * spec) * strength;
+                        gl_FragColor = vec4(col, clamp(a, 0.0, 0.85));
+                    }`,
+                transparent: true, depthWrite: false, side: side
+            });
+        }
+
         // Core materials
         const materials = {
-            // Highly transparent Ewald sphere without depth write to prevent occlusion of internal points
-            ewaldSolid: new THREE.MeshBasicMaterial({
-                color: 0x0077ff, transparent: true, opacity: 0.07,
-                depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
-            }),
+            // Ewald sphere as shaded glass: clear in the middle, bright at the rim (Fresnel), lit from the upper left,
+            // with a soft highlight. No depth write, so reciprocal points inside stay visible.
+            ewaldGlassBack: makeGlassMaterial(THREE.BackSide, 0.45),
+            ewaldGlassFront: makeGlassMaterial(THREE.FrontSide, 1.0),
             ewaldWire: new THREE.MeshBasicMaterial({ color: 0x38e1ff, transparent: true, opacity: 0.75 }),
-            ewaldWireFaint: new THREE.MeshBasicMaterial({ color: 0x38e1ff, transparent: true, opacity: 0.25 }),
+            ewaldWireFaint: new THREE.MeshBasicMaterial({ color: 0x7fe8ff, transparent: true, opacity: 0.32, depthWrite: false }),
             ewaldCenter: new THREE.MeshBasicMaterial({ color: 0x38e1ff }),
 
             latticePoint: new THREE.MeshBasicMaterial({ color: 0xffd34d }),     // active / diffracting
@@ -469,36 +504,19 @@
             // 1. Rebuild Ewald Sphere
             groups.ewald.clear();
 
-            // Main transparent sphere
-            const sphereGeo = new THREE.SphereGeometry(R_EWALD, 64, 64);
-            const sphere = new THREE.Mesh(sphereGeo, materials.ewaldSolid);
-            sphere.position.copy(centerEwald);
-            groups.ewald.add(sphere);
+            // Shaded glass sphere: inner (back) surface first, then the outer (front) surface on top
+            const sphereGeo = new THREE.SphereGeometry(R_EWALD, 96, 64);
+            const sphereBack = new THREE.Mesh(sphereGeo, materials.ewaldGlassBack);
+            sphereBack.position.copy(centerEwald); sphereBack.renderOrder = -1;
+            groups.ewald.add(sphereBack);
+            const sphereFront = new THREE.Mesh(sphereGeo, materials.ewaldGlassFront);
+            sphereFront.position.copy(centerEwald); sphereFront.renderOrder = 10;
+            groups.ewald.add(sphereFront);
 
-            // Equatorial and Meridian rings for structural visualization
-            const tubeRadius = THICKNESS * 0.8;
-            const torusGeo = new THREE.TorusGeometry(R_EWALD, tubeRadius, 16, 64);
-
-            const ringX = new THREE.Mesh(torusGeo, materials.ewaldWire);
-            ringX.position.copy(centerEwald); ringX.rotation.x = Math.PI / 2;
-            groups.ewald.add(ringX);
-
-            const ringY = new THREE.Mesh(torusGeo, materials.ewaldWire);
-            ringY.position.copy(centerEwald); ringY.rotation.y = Math.PI / 2;
-            groups.ewald.add(ringY);
-
-            const ringZ = new THREE.Mesh(torusGeo, materials.ewaldWire);
-            ringZ.position.copy(centerEwald);
-            groups.ewald.add(ringZ);
-
-            // Faint latitude rings (parallel circles about the y axis) so the sphere reads as 3D
-            [-60, -30, 30, 60].forEach(deg => {
-                const phi = deg * Math.PI / 180;
-                const lat = new THREE.Mesh(new THREE.TorusGeometry(R_EWALD * Math.cos(phi), THICKNESS * 0.5, 8, 96), materials.ewaldWireFaint);
-                lat.position.set(centerEwald.x, R_EWALD * Math.sin(phi), 0);
-                lat.rotation.x = Math.PI / 2;
-                groups.ewald.add(lat);
-            });
+            // One faint equator (the horizontal plane of the incident beam) to show the sphere's tilt in perspective
+            const equator = new THREE.Mesh(new THREE.TorusGeometry(R_EWALD, THICKNESS * 0.45, 8, 128), materials.ewaldWireFaint);
+            equator.position.copy(centerEwald); equator.rotation.x = Math.PI / 2; equator.renderOrder = 11;
+            groups.ewald.add(equator);
 
             // Sample (crystal) position at the Ewald centre
             const sampleMarker = new THREE.Mesh(new THREE.SphereGeometry(0.3, 24, 24), materials.ewaldCenter);
